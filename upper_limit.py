@@ -6,7 +6,7 @@ import matplotlib.pylab as pl
 import sys
 import os
 # SET PATH TO SPECTRAL SIMULATOR
-ss_path = "/lustre/cv/users/rloomis/TMC-1/TMC-1/simulate_lte_RAL"
+ss_path = "../simulate_lte_ra/"
 sys.path.append(ss_path)
 from classes import *
 from constants import *
@@ -54,7 +54,7 @@ def calc_noise_std(spectrum):
 
 # reads in the data and returns the data which has coverage of a given species (from the simulated intensities)
 def read_file(filename, restfreqs, int_sim, oldformat=False, shift=0.0, GHz=False, plot=False, block_interlopers=True):
-    data = np.load(filename)
+    data = np.load(filename, read_pickle=True)
 
     if oldformat:
         freqs = data[:,1]

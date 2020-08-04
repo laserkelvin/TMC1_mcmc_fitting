@@ -6,7 +6,7 @@ import matplotlib.pylab as pl
 import sys
 import os
 # SET PATH TO SPECTRAL SIMULATOR
-ss_path = "/lustre/cv/users/rloomis/TMC-1/TMC-1/simulate_lte_RAL"
+ss_path = "../simulate_lte_ra/"
 sys.path.append(ss_path)
 from classes import *
 from constants import *

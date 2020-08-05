@@ -2,3 +2,5 @@ raw/
 *.swp
 __pycache__/
 supplementary/
+gotham_catalogs/
+slurm*

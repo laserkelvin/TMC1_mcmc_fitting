@@ -3,18 +3,40 @@ channels:
   - defaults
 dependencies:
   - _libgcc_mutex=0.1
+  - backcall=0.2.0
   - blas=1.0
   - ca-certificates=2020.6.24
   - certifi=2020.6.20
+  - cycler=0.10.0
+  - dbus=1.13.16
+  - decorator=4.4.2
+  - expat=2.2.9
+  - fontconfig=2.13.0
+  - freetype=2.10.2
+  - glib=2.65.0
+  - gst-plugins-base=1.14.0
+  - gstreamer=1.14.0
+  - icu=58.2
   - intel-openmp=2020.1
+  - ipython=7.16.1
+  - ipython_genutils=0.2.0
+  - jedi=0.17.2
+  - jpeg=9b
+  - kiwisolver=1.2.0
   - ld_impl_linux-64=2.33.1
   - libedit=3.1.20191231
   - libffi=3.3
   - libgcc-ng=9.1.0
   - libgfortran-ng=7.3.0
   - libllvm9=9.0.1
+  - libpng=1.6.37
   - libstdcxx-ng=9.1.0
+  - libuuid=1.0.3
+  - libxcb=1.14
+  - libxml2=2.9.10
   - llvmlite=0.33.0
+  - matplotlib=3.2.2
+  - matplotlib-base=3.2.2
   - mkl=2020.1
   - mkl-service=2.3.0
   - mkl_fft=1.1.0
@@ -24,19 +46,46 @@ dependencies:
   - numpy=1.19.1
   - numpy-base=1.19.1
   - openssl=1.1.1g
+  - parso=0.7.0
+  - pcre=8.44
+  - pexpect=4.8.0
+  - pickleshare=0.7.5
   - pip=20.1.1
+  - prompt-toolkit=3.0.5
+  - ptyprocess=0.6.0
+  - pygments=2.6.1
+  - pyparsing=2.4.7
+  - pyqt=5.9.2
   - python=3.7.7
+  - python-dateutil=2.8.1
+  - qt=5.9.7
   - readline=8.0
   - scipy=1.5.0
   - setuptools=49.2.0
+  - sip=4.19.8
   - six=1.15.0
   - sqlite=3.32.3
   - tbb=2020.0
   - tk=8.6.10
+  - tornado=6.0.4
+  - traitlets=4.3.3
+  - wcwidth=0.2.5
   - wheel=0.34.2
   - xz=5.2.5
   - zlib=1.2.11
   - pip:
-    - emcee==3.0.2
+    - appdirs==1.4.4
+    - attrs==19.3.0
+    - black==19.10b0
+    - click==7.1.2
+    - emcee==2.2.1
+    - loguru==0.5.1
+    - pathspec==0.8.0
+    - regex==2020.7.14
+    - ruamel-yaml==0.16.10
+    - ruamel-yaml-clib==0.2.0
+    - toml==0.10.1
+    - tqdm==4.48.2
+    - typed-ast==1.4.1
 prefix: /home/klee/anaconda3/envs/astro_mcmc
 

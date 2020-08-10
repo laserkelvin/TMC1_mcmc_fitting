@@ -2,8 +2,8 @@ mol_name: "benzonitrile"
 fit_folder: "prior"
 cat_folder: "gotham_catalogs"
 data_path: "supplementary/benzonitrile/benzonitrile_chunks.npy"
-prior_path: "prior/benzonitrile/prior.npy"
-#prior_path: null
+#prior_path: "prior/benzonitrile/prior.npy"
+prior_path: null
 block_interlopers: true
 nruns: 2000
 restart: false

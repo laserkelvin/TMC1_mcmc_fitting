@@ -584,25 +584,23 @@ def fit_multi_gaussian(
     ndim, nwalkers = 14, 200
 
     # if we're generating priors, use these values
-    if prior_path is None:
-        initial = [
-            9.18647134e01,
-            7.16006254e01,
-            2.32811179e02,
-            2.47626564e02,
-            1.76929473e11 * 1.1,
-            5.50609449e11 * 1.1,
-            2.85695178e11 * 1.1,
-            4.63340654e11 * 1.1,
-            6.02600284e00,
-            5.59259457e00,
-            5.76263295e00,
-            5.88341792e00,
-            6.01574809e00,
-            1.22574843e-01,
-        ]
-    else:
-        initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
+    #initial = [
+    #    9.18647134e01,
+    #    7.16006254e01,
+    #    2.32811179e02,
+    #    2.47626564e02,
+    #    1.76929473e11 * 1.1,
+    #    5.50609449e11 * 1.1,
+    #    2.85695178e11 * 1.1,
+    #    4.63340654e11 * 1.1,
+    #    6.02600284e00,
+    #    5.59259457e00,
+    #    5.76263295e00,
+    #    5.88341792e00,
+    #    6.01574809e00,
+    #    1.22574843e-01,
+    #]
+    initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
 
     if restart:
         pos = [
@@ -680,7 +678,6 @@ def fit_multi_gaussian(
     else:
         prior_stds = prior_means = None
     logger.info(f"Using prior {prior_path}, mean: {prior_means}, std: {prior_stds}")
-    logger.info(f"Shapes of: mean - {prior_means.shape}, std - {prior_stds.shape}")
 
     # run the MCMC sampling
     output_chain = Path(output_path).joinpath("chain.npy")
@@ -700,7 +697,7 @@ def fit_multi_gaussian(
             iterator = tqdm(iterator)
         for iteration in iterator:
             sampler.run_mcmc(pos, 1)
-            if iteration % 2 == 0:
+            if iteration % 10 == 0:
                 np.save(output_chain, np.array(sampler.chain))
             pos = sampler.chain[:, -1, :]
     logger.info("Completed MCMC sampling routine.")

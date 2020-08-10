@@ -3,7 +3,7 @@ from pathlib import Path
 from multiprocessing import Pool
 
 import numpy as np
-import ruamel.yaml as yaml
+from ruamel.yaml import YAML
 import emcee
 from loguru import logger
 from numba import njit
@@ -12,7 +12,7 @@ from constants import *
 from classes import MolSim, ObsParams, MolCat
 
 
-@njit(fastmath=True)
+@njit
 def calc_noise_std(y: np.ndarray, sigma=3):
     tmp_y = np.copy(y)
     i = np.nanmax(tmp_y)
@@ -325,7 +325,7 @@ def lnlike(theta: Tuple[float], datagrid: np.ndarray, mol_cat: Type[MolCat]) -> 
     return -0.5 * tot_lnlike
 
 
-def base_lnprior(theta):
+def base_lnprior(theta) -> float:
     """
     Compute the prior for a set of parameters. This is used for simulations that do
     not have a prior, and instead uses uniform, uninformative priors.
@@ -373,13 +373,14 @@ def base_lnprior(theta):
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.3))
         and (vlsr4 < (vlsr3 + 0.3))
-        and (0.0 < dV < 0.3)
+        and dV < 0.3
+        and Tex > 0.
     ):
         return 0.0
     return -np.inf
 
 
-def lnprior(theta, prior_stds, prior_means):
+def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray) -> float:
     """
     The regular modeling prior, that is based off of an actual template, and computed
     by Gaussian likelihoods.
@@ -426,10 +427,10 @@ def lnprior(theta, prior_stds, prior_means):
 
     # set custom priors and limits here
     if (
-        (0.0 < source_size1 < 200)
-        and (0.0 < source_size2 < 200)
-        and (0.0 < source_size3 < 200)
-        and (0.0 < source_size4 < 200)
+        (0.0 < source_size1 < 600)
+        and (0.0 < source_size2 < 600)
+        and (0.0 < source_size3 < 600)
+        and (0.0 < source_size4 < 600)
         and (0.0 < Ncol1 < 10 ** 16.0)
         and (0.0 < Ncol2 < 10 ** 16.0)
         and (0.0 < Ncol3 < 10 ** 16.0)
@@ -440,52 +441,31 @@ def lnprior(theta, prior_stds, prior_means):
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.2))
         and (vlsr4 < (vlsr3 + 0.2))
-        and dV < 0.3
+        and dV < 2.3
+        and Tex > 0.
     ):
+        p0 = log_gaussian(source_size1, m0, s0)
+        p1 = log_gaussian(source_size2, m1, s1)
+        p2 = log_gaussian(source_size3, m2, s2)
+        p3 = log_gaussian(source_size4, m3, s3)
 
-        p0 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s0))
-            - 0.5 * (source_size1 - m0) ** 2 / s0 ** 2
-        )
-        p1 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s1))
-            - 0.5 * (source_size2 - m1) ** 2 / s1 ** 2
-        )
-        p2 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s2))
-            - 0.5 * (source_size3 - m2) ** 2 / s2 ** 2
-        )
-        p3 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s3))
-            - 0.5 * (source_size4 - m3) ** 2 / s3 ** 2
-        )
+        p8 = log_gaussian(Tex, m8, s8)
+        p9 = log_gaussian(vlsr1, m9, s9)
+        p10 = log_gaussian(vlsr2, m10, s10)
+        p11 = log_gaussian(vlsr3, m11, s11)
+        p12 = log_gaussian(vlsr4, m12, s12)
 
-        p8 = np.log(1.0 / (np.sqrt(2 * np.pi) * s8)) - 0.5 * (Tex - m8) ** 2 / s8 ** 2
-
-        p9 = np.log(1.0 / (np.sqrt(2 * np.pi) * s9)) - 0.5 * (vlsr1 - m9) ** 2 / s9 ** 2
-        p10 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s10))
-            - 0.5 * (vlsr2 - m10) ** 2 / s10 ** 2
-        )
-        p11 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s11))
-            - 0.5 * (vlsr3 - m11) ** 2 / s11 ** 2
-        )
-        p12 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s12))
-            - 0.5 * (vlsr4 - m12) ** 2 / s12 ** 2
-        )
-
-        p13 = (
-            np.log(1.0 / (np.sqrt(2 * np.pi) * s13)) - 0.5 * (dV - m13) ** 2 / s13 ** 2
-        )
-
+        p13 = log_gaussian(dV, m13, s13)
         return p0 + p1 + p2 + p3 + p8 + p9 + p10 + p11 + p12 + p13
-
     return -np.inf
 
 
-def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None):
+@njit
+def log_gaussian(x: float, mean: float, std: float) -> float:
+    return np.log(1.0 / (np.sqrt(2 * np.pi) * std)) - 0.5 * (x - mean) ** 2 / std** 2
+
+
+def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None) -> float:
     """
     Compute the total log probability as the sum of the prior
     and the log likelihood.
@@ -510,16 +490,20 @@ def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None):
     """
     if (prior_stds is None) and (prior_means is None):
         lp = base_lnprior(theta)
-    # else:
-    #     lp = lnprior(theta, prior_stds, prior_means)
-    if not np.isfinite(lp):
-        return -np.inf
-    prob = lnlike(theta, datagrid, mol_cat)
-    return lp + prob
+    else:
+        lp = lnprior(theta, prior_stds, prior_means)
+    prob = lp + lnlike(theta, datagrid, mol_cat)
+    # for whatever reason, sometimes only -np.inf is returned for the
+    # pool. This patches it by simply making everything damn unlikely,
+    # and it seems to let the sampling continue happily :P
+    if type(prob) == np.float64:
+        prob = [-np.inf for _ in range(200)]
+    return prob
 
 
 def load_input_file(yml_path):
     with open(yml_path, "r") as read_file:
+        yaml = YAML(typ="safe")
         input_dict = yaml.load(read_file)
     return input_dict
 
@@ -540,6 +524,9 @@ def init_setup(
     logger.add(output_path.joinpath("LOG"))
     logger.info(
         f"Running setup for: {mol_name}, with block_interplopers={block_interlopers}"
+    )
+    logger.info(
+        f"NumPy version: {np.__version__}, Emcee version: {emcee.__version__}."
     )
 
     # Predict frequencies
@@ -596,22 +583,26 @@ def fit_multi_gaussian(
 
     ndim, nwalkers = 14, 200
 
-    initial = [
-        9.18647134e01,
-        7.16006254e01,
-        2.32811179e02,
-        2.47626564e02,
-        1.76929473e11 * 1.1,
-        5.50609449e11 * 1.1,
-        2.85695178e11 * 1.1,
-        4.63340654e11 * 1.1,
-        6.02600284e00,
-        5.59259457e00,
-        5.76263295e00,
-        5.88341792e00,
-        6.01574809e00,
-        1.22574843e-01,
-    ]
+    # if we're generating priors, use these values
+    if prior_path is None:
+        initial = [
+            9.18647134e01,
+            7.16006254e01,
+            2.32811179e02,
+            2.47626564e02,
+            1.76929473e11 * 1.1,
+            5.50609449e11 * 1.1,
+            2.85695178e11 * 1.1,
+            4.63340654e11 * 1.1,
+            6.02600284e00,
+            5.59259457e00,
+            5.76263295e00,
+            5.88341792e00,
+            6.01574809e00,
+            1.22574843e-01,
+        ]
+    else:
+        initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
 
     if restart:
         pos = [
@@ -673,7 +664,7 @@ def fit_multi_gaussian(
     # the statistics
     if prior_path:
         # load priors
-        prior_samples = np.load(prior_path).T
+        prior_samples = np.load(prior_path, allow_pickle=True).T
 
         prior_stds = (
             np.abs(
@@ -689,6 +680,7 @@ def fit_multi_gaussian(
     else:
         prior_stds = prior_means = None
     logger.info(f"Using prior {prior_path}, mean: {prior_means}, std: {prior_stds}")
+    logger.info(f"Shapes of: mean - {prior_means.shape}, std - {prior_stds.shape}")
 
     # run the MCMC sampling
     output_chain = Path(output_path).joinpath("chain.npy")
@@ -699,7 +691,7 @@ def fit_multi_gaussian(
             ndim,
             lnprob,
             args=(datagrid, mol_cat, prior_stds, prior_means),
-            pool=pool,
+            pool=pool
         )
         iterator = range(nruns)
         if progressbar:
@@ -708,7 +700,7 @@ def fit_multi_gaussian(
             iterator = tqdm(iterator)
         for iteration in iterator:
             sampler.run_mcmc(pos, 1)
-            if iteration % 10 == 0:
+            if iteration % 2 == 0:
                 np.save(output_chain, np.array(sampler.chain))
             pos = sampler.chain[:, -1, :]
     logger.info("Completed MCMC sampling routine.")

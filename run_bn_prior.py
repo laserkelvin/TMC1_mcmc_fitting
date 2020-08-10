@@ -1,6 +1,11 @@
 import repack
+import numpy as np
 
+import os
 
+os.environ["OMP_NUM_THREADS"] = "1"
+
+seed = np.random.seed(42)
 PROGRESSBAR = True
 
 input_dict = repack.load_input_file("yml/benzonitrile.yml")

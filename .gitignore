@@ -4,3 +4,4 @@ __pycache__/
 supplementary/
 gotham_catalogs/
 slurm*
+.vscode/

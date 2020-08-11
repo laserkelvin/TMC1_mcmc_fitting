@@ -7,23 +7,41 @@ from ruamel.yaml import YAML
 import emcee
 from loguru import logger
 from numba import njit
+from tqdm import tqdm
 
 from constants import *
 from classes import MolSim, ObsParams, MolCat
 
 
-@njit
-def calc_noise_std(y: np.ndarray, sigma=3):
-    tmp_y = np.copy(y)
-    i = np.nanmax(tmp_y)
-    rms = np.sqrt(np.nanmean(np.square(tmp_y)))
-    while i > sigma * rms:
-        tmp_y = tmp_y[tmp_y < sigma * rms]
-        noise_mean = np.nanmean(tmp_y)
-        noise_std = np.nanstd(np.real(tmp_y))
-        rms = np.sqrt(np.nanmean(np.square(tmp_y)))
-        # noise std as the rms with mean subtracted away
-        i = np.nanmax(tmp_y)
+# calculates the rms noise in a given spectrum, should be robust to interloping lines, etc.
+def calc_noise_std(spectrum):
+    dummy_ints = np.copy(spectrum)
+    noise = np.copy(spectrum)
+    dummy_mean = np.nanmean(dummy_ints)
+    dummy_std = np.nanstd(dummy_ints)
+
+    # repeats 3 times to make sure to avoid any interloping lines
+    for chan in np.where(dummy_ints < (-dummy_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    for chan in np.where(dummy_ints > (dummy_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    noise_mean = np.nanmean(noise)
+    noise_std = np.nanstd(np.real(noise))
+
+    for chan in np.where(dummy_ints < (-noise_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    for chan in np.where(dummy_ints > (noise_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    noise_mean = np.nanmean(noise)
+    noise_std = np.nanstd(np.real(noise))
+
+    for chan in np.where(dummy_ints < (-dummy_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    for chan in np.where(dummy_ints > (dummy_std*3.5))[0]:
+        noise[chan-10:chan+10] = np.nan
+    noise_mean = np.nanmean(noise)
+    noise_std = np.nanstd(np.real(noise))
+
     return noise_mean, noise_std
 
 
@@ -49,6 +67,9 @@ def read_file(
 
     if GHz:
         freqs *= 1000.0
+
+    logger.info(f"Max frequency of spectrum: {np.max(freqs)}")
+    logger.info(f"Max frequency of catalog: {np.max(restfreqs)}")
 
     relevant_freqs = np.zeros(freqs.shape)
     relevant_intensity = np.zeros(intensity.shape)
@@ -131,7 +152,7 @@ def predict_intensities(
         [dV],
         [Tex],
         ll=[7000],
-        ul=[30000],
+        ul=[40000],
         gauss=False,
     )
     freq_sim = sim.freq_sim
@@ -373,8 +394,7 @@ def base_lnprior(theta) -> float:
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.3))
         and (vlsr4 < (vlsr3 + 0.3))
-        and dV < 0.3
-        and Tex > 0.
+        and 0. < dV < 0.3
     ):
         return 0.0
     return -np.inf
@@ -435,13 +455,14 @@ def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray
         and (0.0 < Ncol2 < 10 ** 16.0)
         and (0.0 < Ncol3 < 10 ** 16.0)
         and (0.0 < Ncol4 < 10 ** 16.0)
+        and vlsr1 > 0.
         and (vlsr1 < (vlsr2 - 0.05))
         and (vlsr2 < (vlsr3 - 0.05))
         and (vlsr3 < (vlsr4 - 0.05))
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.2))
         and (vlsr4 < (vlsr3 + 0.2))
-        and dV < 2.3
+        and 0. < dV < 0.3
         and Tex > 0.
     ):
         p0 = log_gaussian(source_size1, m0, s0)
@@ -459,6 +480,42 @@ def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray
         return p0 + p1 + p2 + p3 + p8 + p9 + p10 + p11 + p12 + p13
     return -np.inf
 
+
+def parameter_constraint(theta: Tuple[float]) -> float:
+    (
+        source_size1,
+        source_size2,
+        source_size3,
+        source_size4,
+        Ncol1,
+        Ncol2,
+        Ncol3,
+        Ncol4,
+        Tex,
+        vlsr1,
+        vlsr2,
+        vlsr3,
+        vlsr4,
+        dV,
+    ) = theta
+    return (
+        (0.0 < source_size1 < 400)
+        and (0.0 < source_size2 < 400)
+        and (0.0 < source_size3 < 400)
+        and (0.0 < source_size4 < 400)
+        and (0.0 < Ncol1 < 10 ** 16.0)
+        and (0.0 < Ncol2 < 10 ** 16.0)
+        and (0.0 < Ncol3 < 10 ** 16.0)
+        and (0.0 < Ncol4 < 10 ** 16.0)
+        and (vlsr1 < (vlsr2 - 0.05))
+        and (vlsr2 < (vlsr3 - 0.05))
+        and (vlsr3 < (vlsr4 - 0.05))
+        and (vlsr2 < (vlsr1 + 0.3))
+        and (vlsr3 < (vlsr2 + 0.3))
+        and (vlsr4 < (vlsr3 + 0.3))
+        and 5e-2 < dV < 0.3
+        and Tex > 3.
+    )
 
 @njit
 def log_gaussian(x: float, mean: float, std: float) -> float:
@@ -488,17 +545,20 @@ def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None) -> float
     [type]
         [description]
     """
-    if (prior_stds is None) and (prior_means is None):
-        lp = base_lnprior(theta)
+    if not parameter_constraint(theta):
+        return -np.inf
     else:
-        lp = lnprior(theta, prior_stds, prior_means)
-    prob = lp + lnlike(theta, datagrid, mol_cat)
-    # for whatever reason, sometimes only -np.inf is returned for the
-    # pool. This patches it by simply making everything damn unlikely,
-    # and it seems to let the sampling continue happily :P
-    if type(prob) == np.float64:
-        prob = [-np.inf for _ in range(200)]
-    return prob
+        if (prior_stds is None) and (prior_means is None):
+            lp = base_lnprior(theta)
+        else:
+            lp = lnprior(theta, prior_stds, prior_means)
+        prob = lp + lnlike(theta, datagrid, mol_cat)
+        # for whatever reason, sometimes only -np.inf is returned for the
+        # pool. This patches it by simply making everything damn unlikely,
+        # and it seems to let the sampling continue happily :P
+        #if type(prob) == np.float64:
+        #    prob = [-np.inf for _ in range(200)]
+        return prob
 
 
 def load_input_file(yml_path):
@@ -541,7 +601,7 @@ def init_setup(
         [0.37],
         [8.0],
         ll=[7000],
-        ul=[30000],
+        ul=[40000],
         gauss=False,
     )
     freq_sim = np.array(sim.freq_sim)
@@ -584,23 +644,23 @@ def fit_multi_gaussian(
     ndim, nwalkers = 14, 200
 
     # if we're generating priors, use these values
-    #initial = [
-    #    9.18647134e01,
-    #    7.16006254e01,
-    #    2.32811179e02,
-    #    2.47626564e02,
-    #    1.76929473e11 * 1.1,
-    #    5.50609449e11 * 1.1,
-    #    2.85695178e11 * 1.1,
-    #    4.63340654e11 * 1.1,
-    #    6.02600284e00,
-    #    5.59259457e00,
-    #    5.76263295e00,
-    #    5.88341792e00,
-    #    6.01574809e00,
-    #    1.22574843e-01,
-    #]
-    initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
+    initial = [
+        9.18647134e01,
+        7.16006254e01,
+        2.32811179e02,
+        2.47626564e02,
+        1.76929473e11 * 1.1,
+        5.50609449e11 * 1.1,
+        2.85695178e11 * 1.1,
+        4.63340654e11 * 1.1,
+        6.02600284e00,
+        5.59259457e00,
+        5.76263295e00,
+        5.88341792e00,
+        6.01574809e00,
+        1.22574843e-01,
+    ]
+    #initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
 
     if restart:
         pos = [
@@ -691,14 +751,20 @@ def fit_multi_gaussian(
             pool=pool
         )
         iterator = range(nruns)
-        if progressbar:
-            from tqdm import tqdm
-
-            iterator = tqdm(iterator)
         for iteration in iterator:
-            sampler.run_mcmc(pos, 1)
-            if iteration % 10 == 0:
-                np.save(output_chain, np.array(sampler.chain))
-            pos = sampler.chain[:, -1, :]
+            sampler.run_mcmc(pos, 100, progress=True)
+            #if iteration % 10 == 0:
+            np.save(output_chain, sampler.get_chain())
+            #pos = sampler.chain[:, -1, :]
+            pos = sampler.get_last_sample()
+            # log the status
+            #if iteration % 100 == 0:
+            median = np.percentile(sampler.chain.reshape(-1, 14), 50, axis=0)
+            logger.info(f"Median parameters for {iteration}: {median}")
+            accept_frac = np.mean(sampler.acceptance_fraction)
+            logger.info(f"Mean fraction of accepted moves: {accept_frac:.4f}")
+            # autocorrelation
+        corr = np.mean(sampler.get_autocorr_time())
+        logger.info(f"Autocorrelation time: {corr:.4f}")
     logger.info("Completed MCMC sampling routine.")
     return

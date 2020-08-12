@@ -58,61 +58,67 @@ def read_file(
 ):
     data = np.load(filename, allow_pickle=True)
 
-    if oldformat:
-        freqs = data[:, 1]
-        intensity = data[:, 2]
-    else:
-        freqs = data[0]
-        intensity = data[1]
+    if ".npy" not in str(filename):
+        if oldformat:
+            freqs = data[:, 1]
+            intensity = data[:, 2]
+        else:
+            freqs = data[0]
+            intensity = data[1]
 
-    if GHz:
-        freqs *= 1000.0
+        if GHz:
+            freqs *= 1000.0
 
-    logger.info(f"Max frequency of spectrum: {np.max(freqs)}")
-    logger.info(f"Max frequency of catalog: {np.max(restfreqs)}")
+        logger.info(f"Max frequency of spectrum: {np.max(freqs)}")
+        logger.info(f"Max frequency of catalog: {np.max(restfreqs)}")
 
-    relevant_freqs = np.zeros(freqs.shape)
-    relevant_intensity = np.zeros(intensity.shape)
-    relevant_yerrs = np.zeros(freqs.shape)
+        relevant_freqs = np.zeros(freqs.shape)
+        relevant_intensity = np.zeros(intensity.shape)
+        relevant_yerrs = np.zeros(freqs.shape)
 
-    covered_trans = []
+        covered_trans = []
 
-    # loop over the rest frequencies
-    for i, rf in enumerate(restfreqs):
-        thresh = 0.05
-        # if the simulated intensity is greater than a threshold, we process it
-        if int_sim[i] > thresh * np.max(int_sim):
-            # convert to VLSR
-            vel = (rf - freqs) / rf * 300000 + shift
-            locs = np.where((vel < (0.3 + 6.0)) & (vel > (-0.3 + 5.6)))
-            # if there are values that satisfy the condition, go further
-            if locs[0].size != 0:
-                noise_mean, noise_std = calc_noise_std(intensity[locs])
-                if block_interlopers and (np.max(intensity[locs]) > 6 * noise_std):
-                    logger.info(f"Interloping line detected @ {rf}.")
+        # loop over the rest frequencies
+        for i, rf in enumerate(restfreqs):
+            thresh = 0.05
+            # if the simulated intensity is greater than a threshold, we process it
+            if int_sim[i] > thresh * np.max(int_sim):
+                # convert to VLSR
+                vel = (rf - freqs) / rf * 300000 + shift
+                locs = np.where((vel < (0.3 + 6.0)) & (vel > (-0.3 + 5.6)))
+                # if there are values that satisfy the condition, go further
+                if locs[0].size != 0:
+                    noise_mean, noise_std = calc_noise_std(intensity[locs])
+                    if block_interlopers and (np.max(intensity[locs]) > 6 * noise_std):
+                        logger.info(f"Interloping line detected @ {rf}.")
+                        if plot:
+                            pl.plot(freqs[locs], intensity[locs])
+                            pl.show()
+                    else:
+                        covered_trans.append(i)
+                        logger.info(f"Found_line at @ {rf}")
+                        relevant_freqs[locs] = freqs[locs]
+                        relevant_intensity[locs] = intensity[locs]
+                        relevant_yerrs[locs] = np.sqrt(
+                            noise_std ** 2 + (intensity[locs] * 0.1) ** 2
+                        )
+
                     if plot:
                         pl.plot(freqs[locs], intensity[locs])
                         pl.show()
                 else:
-                    covered_trans.append(i)
-                    logger.info(f"Found_line at @ {rf}")
-                    relevant_freqs[locs] = freqs[locs]
-                    relevant_intensity[locs] = intensity[locs]
-                    relevant_yerrs[locs] = np.sqrt(
-                        noise_std ** 2 + (intensity[locs] * 0.1) ** 2
-                    )
+                    logger.info(f"No data covering {rf}")
 
-                if plot:
-                    pl.plot(freqs[locs], intensity[locs])
-                    pl.show()
-            else:
-                logger.info(f"No data covering {rf}")
+        mask = relevant_freqs > 0
 
-    mask = relevant_freqs > 0
-
-    relevant_freqs = relevant_freqs[mask]
-    relevant_intensity = relevant_intensity[mask]
-    relevant_yerrs = relevant_yerrs[mask]
+        relevant_freqs = relevant_freqs[mask]
+        relevant_intensity = relevant_intensity[mask]
+        relevant_yerrs = relevant_yerrs[mask]
+    else:
+        relevant_freqs = data[0]
+        relevant_intensity = data[1]
+        relevant_yerrs = data[2]
+        covered_trans = data[3]
 
     return (relevant_freqs, relevant_intensity, relevant_yerrs, covered_trans)
 
@@ -152,7 +158,7 @@ def predict_intensities(
         [dV],
         [Tex],
         ll=[7000],
-        ul=[40000],
+        ul=[35000],
         gauss=False,
     )
     freq_sim = sim.freq_sim
@@ -462,7 +468,7 @@ def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.2))
         and (vlsr4 < (vlsr3 + 0.2))
-        and 0. < dV < 0.3
+        and dV < 0.3
         and Tex > 0.
     ):
         p0 = log_gaussian(source_size1, m0, s0)
@@ -513,13 +519,14 @@ def parameter_constraint(theta: Tuple[float]) -> float:
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.3))
         and (vlsr4 < (vlsr3 + 0.3))
-        and 5e-2 < dV < 0.3
-        and Tex > 3.
+        and dV < 0.3
+        and Tex > 0.
     )
 
 @njit
 def log_gaussian(x: float, mean: float, std: float) -> float:
     return np.log(1.0 / (np.sqrt(2 * np.pi) * std)) - 0.5 * (x - mean) ** 2 / std** 2
+
 
 
 def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None) -> float:
@@ -556,8 +563,8 @@ def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None) -> float
         # for whatever reason, sometimes only -np.inf is returned for the
         # pool. This patches it by simply making everything damn unlikely,
         # and it seems to let the sampling continue happily :P
-        #if type(prob) == np.float64:
-        #    prob = [-np.inf for _ in range(200)]
+        if type(prob) == np.float64:
+            prob = [-np.inf for _ in range(200)]
         return prob
 
 
@@ -592,6 +599,7 @@ def init_setup(
     # Predict frequencies
     obs_params = ObsParams("init", source_size=40)
     mol_cat = MolCat(mol_name, str(catalog_path))
+    logger.info("Reading in simulation")
     sim = MolSim(
         mol_name + " sim 8K",
         mol_cat,
@@ -601,7 +609,7 @@ def init_setup(
         [0.37],
         [8.0],
         ll=[7000],
-        ul=[40000],
+        ul=[35000],
         gauss=False,
     )
     freq_sim = np.array(sim.freq_sim)
@@ -631,6 +639,7 @@ def fit_multi_gaussian(
     restart=True,
     prior_path=None,
     workers=8,
+    initial=None,
     progressbar=False,
     **kwargs,
 ):
@@ -644,23 +653,25 @@ def fit_multi_gaussian(
     ndim, nwalkers = 14, 200
 
     # if we're generating priors, use these values
-    initial = [
-        9.18647134e01,
-        7.16006254e01,
-        2.32811179e02,
-        2.47626564e02,
-        1.76929473e11 * 1.1,
-        5.50609449e11 * 1.1,
-        2.85695178e11 * 1.1,
-        4.63340654e11 * 1.1,
-        6.02600284e00,
-        5.59259457e00,
-        5.76263295e00,
-        5.88341792e00,
-        6.01574809e00,
-        1.22574843e-01,
-    ]
-    #initial = [42.8, 24.3, 47.9, 21.5, 5.8e13, 9.5e13, 4.e13, 1.06e14, 7.7, 5.603, 5.745, 5.873, 6.024, 0.1568]
+    if not initial:
+        initial = [
+            9.18647134e01,
+            7.16006254e01,
+            2.32811179e02,
+            2.47626564e02,
+            1.76929473e11 * 1.1,
+            5.50609449e11 * 1.1,
+            2.85695178e11 * 1.1,
+            4.63340654e11 * 1.1,
+            6.02600284e00,
+            5.59259457e00,
+            5.76263295e00,
+            5.88341792e00,
+            6.01574809e00,
+            1.22574843e-01,
+        ]
+    else:
+        initial = np.load(initial)
 
     if restart:
         pos = [

@@ -43,8 +43,6 @@ dependencies:
   - mkl_random=1.1.1
   - ncurses=6.2
   - numba=0.50.1
-  - numpy=1.19.1
-  - numpy-base=1.19.1
   - openssl=1.1.1g
   - parso=0.7.0
   - pcre=8.44
@@ -78,12 +76,19 @@ dependencies:
     - attrs==19.3.0
     - black==19.10b0
     - click==7.1.2
-    - emcee==2.2.1
+    - corner==2.1.0
+    - emcee==3.0.2
     - loguru==0.5.1
+    - numpy==1.16.4
+    - palettable==3.3.0
+    - pandas==1.1.0
     - pathspec==0.8.0
+    - pytz==2020.1
     - regex==2020.7.14
     - ruamel-yaml==0.16.10
     - ruamel-yaml-clib==0.2.0
+    - seaborn==0.10.1
+    - setuptools-scm==4.1.2
     - toml==0.10.1
     - tqdm==4.48.2
     - typed-ast==1.4.1

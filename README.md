@@ -3,7 +3,7 @@
 This folder builds off of Ryan's scripts to perform the MCMC
 analysis of TMC-1 using the GOTHAM DR1.
 
-The modifications made here by Kelvin is a significant refactoring
+The modifications made here by Kelvin comprising a significant refactoring
 and organization of the code into effectively a single module:
 all the functionality from reading in input, setting up the file
 structure, computing beam corrections, model likelihoods, and
@@ -17,6 +17,16 @@ the same as in the previous version. You can then create a short
 Python script that calls two functions: `init_setup` and
 `fit_multi_gaussian`; the former creates the file structures,
 and the latter performs the MCMC analysis.
+
+## Set up and workflow
+
+1. Clone this repository
+2. Use `conda env create -f conda.yml` to reproduce the software environment
+3. Generate priors using benzonitrile or other
+4. Perform MCMC analysis of other molecules, using precomputed Gaussian priors
+
+Corner plots are generated with `seaborn`, although in the first iteration `corner`
+was used. Using `seaborn` was a little bit more extensible.
 
 ## YAML input structure
 

@@ -1,0 +1,11 @@
+mol_name: "2-cyanonaphthalene"
+fit_folder: "cnn_dr1"
+cat_folder: "gotham_catalogs"
+data_path: "supplementary/2-cyanonapthalene/2-cyanonapthalene_chunks.npy"
+prior_path: "prior/bn_prior_chain.npy"
+block_interlopers: true
+nruns: 400
+nwalkers: 100
+restart: false
+workers: 4
+initial: "prior/initial_parameters.npy"

@@ -98,9 +98,13 @@ def calc_q(catalog, T):
 
     elif '1-cyanonaphthalene' in catalog.catalog_file.lower():
         Q = 560.39*T**1.4984
+        if T == 300.:
+            Q = 2108153.3871
 
     elif '2-cyanonaphthalene' in catalog.catalog_file.lower():
         Q = 562.57*T**1.4993
+        if T == 300.:
+            Q = 2514761.8013
 
     elif 'furan' in catalog.catalog_file.lower():
         Q = 33.725*T**1.4982
@@ -128,6 +132,8 @@ def calc_q(catalog, T):
 
     elif 'benzonitrile' in catalog.catalog_file.lower():
         Q = 25.896*T**1.4998 + 0.38109
+        if T == 300.:
+            Q = 129198.481
 
         if T > 60:
             print('Warning: Extrapolating Q beyond 60 K for this molecule gets progressively iffier.')

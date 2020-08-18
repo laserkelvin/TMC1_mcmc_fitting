@@ -5,3 +5,5 @@ supplementary/
 gotham_catalogs/
 slurm*
 .vscode/
+batch.sh
+pull_data.sh

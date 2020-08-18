@@ -56,9 +56,9 @@ def read_file(
     plot=False,
     block_interlopers=True,
 ):
-    data = np.load(filename, allow_pickle=True)
-
     if ".npy" not in str(filename):
+        # load in the text file, and transpose to get freq/int as columns
+        data = np.loadtxt(filename).T
         if oldformat:
             freqs = data[:, 1]
             intensity = data[:, 2]
@@ -80,7 +80,10 @@ def read_file(
 
         # loop over the rest frequencies
         for i, rf in enumerate(restfreqs):
-            thresh = 0.05
+            if block_interlopers:
+                thresh = 0.1
+            else:
+                thresh = 0.05
             # if the simulated intensity is greater than a threshold, we process it
             if int_sim[i] > thresh * np.max(int_sim):
                 # convert to VLSR
@@ -89,6 +92,9 @@ def read_file(
                 # if there are values that satisfy the condition, go further
                 if locs[0].size != 0:
                     noise_mean, noise_std = calc_noise_std(intensity[locs])
+                    if np.isnan(noise_mean) or np.isnan(noise_std):
+                        logger.info(f"Noise calc returned NaN @ {rf}; ignoring.")
+                        continue
                     if block_interlopers and (np.max(intensity[locs]) > 6 * noise_std):
                         logger.info(f"Interloping line detected @ {rf}.")
                         if plot:
@@ -115,10 +121,17 @@ def read_file(
         relevant_intensity = relevant_intensity[mask]
         relevant_yerrs = relevant_yerrs[mask]
     else:
+        data = np.load(filename, allow_pickle=True)
+        # read in the appropriate data
         relevant_freqs = data[0]
         relevant_intensity = data[1]
         relevant_yerrs = data[2]
         covered_trans = data[3]
+    nan_mask = np.isnan(relevant_yerrs)
+    if len(nan_mask) != 0:
+        logger.info(f"There are {nan_mask.sum()} baddies!")
+        logger.info(f"At these frequencies {relevant_freqs[nan_mask]}")
+        logger.info(f"With these intensities {relevant_intensity[nan_mask]}")
 
     return (relevant_freqs, relevant_intensity, relevant_yerrs, covered_trans)
 
@@ -441,15 +454,16 @@ def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray
         vlsr4,
         dV,
     ) = theta
+    #prior_stds = prior_means * 0.8
     s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13 = prior_stds
     m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13 = prior_means
 
     # in several cases the standard deviations on some of the parameters are too restrictive (e.g. vlsr and dV). Relaxing slightly
-    s9 = m13 * 0.8
-    s10 = m13 * 0.8
-    s11 = m13 * 0.8
-    s12 = m13 * 0.8
-    s13 = m13 * 0.3
+    #s9 = m13 * 0.8
+    #s10 = m13 * 0.8
+    #s11 = m13 * 0.8
+    #s12 = m13 * 0.8
+    s13 = m13 * 0.1
 
     # set custom priors and limits here
     if (
@@ -468,21 +482,34 @@ def lnprior(theta: Tuple[float], prior_stds: np.ndarray, prior_means: np.ndarray
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.2))
         and (vlsr4 < (vlsr3 + 0.2))
-        and dV < 0.3
+        and 0. < dV < 0.3
         and Tex > 0.
     ):
-        p0 = log_gaussian(source_size1, m0, s0)
-        p1 = log_gaussian(source_size2, m1, s1)
-        p2 = log_gaussian(source_size3, m2, s2)
-        p3 = log_gaussian(source_size4, m3, s3)
+        p0 = np.log(1.0/(np.sqrt(2*np.pi)*s0))-0.5*(source_size1-m0)**2/s0**2
+        p1 = np.log(1.0/(np.sqrt(2*np.pi)*s1))-0.5*(source_size2-m1)**2/s1**2
+        p2 = np.log(1.0/(np.sqrt(2*np.pi)*s2))-0.5*(source_size3-m2)**2/s2**2
+        p3 = np.log(1.0/(np.sqrt(2*np.pi)*s3))-0.5*(source_size4-m3)**2/s3**2
 
-        p8 = log_gaussian(Tex, m8, s8)
-        p9 = log_gaussian(vlsr1, m9, s9)
-        p10 = log_gaussian(vlsr2, m10, s10)
-        p11 = log_gaussian(vlsr3, m11, s11)
-        p12 = log_gaussian(vlsr4, m12, s12)
+        p8 = np.log(1.0/(np.sqrt(2*np.pi)*s8))-0.5*(Tex-m8)**2/s8**2
 
-        p13 = log_gaussian(dV, m13, s13)
+        p9 = np.log(1.0/(np.sqrt(2*np.pi)*s9))-0.5*(vlsr1-m9)**2/s9**2
+        p10 = np.log(1.0/(np.sqrt(2*np.pi)*s10))-0.5*(vlsr2-m10)**2/s10**2
+        p11 = np.log(1.0/(np.sqrt(2*np.pi)*s11))-0.5*(vlsr3-m11)**2/s11**2
+        p12 = np.log(1.0/(np.sqrt(2*np.pi)*s12))-0.5*(vlsr4-m12)**2/s12**2
+
+        p13 = np.log(1.0/(np.sqrt(2*np.pi)*s13))-0.5*(dV-m13)**2/s13**2
+        #p0 = log_gaussian(source_size1, m0, s0)
+        #p1 = log_gaussian(source_size2, m1, s1)
+        #p2 = log_gaussian(source_size3, m2, s2)
+        #p3 = log_gaussian(source_size4, m3, s3)
+
+        #p8 = log_gaussian(Tex, m8, s8)
+        #p9 = log_gaussian(vlsr1, m9, s9)
+        #p10 = log_gaussian(vlsr2, m10, s10)
+        #p11 = log_gaussian(vlsr3, m11, s11)
+        #p12 = log_gaussian(vlsr4, m12, s12)
+
+        #p13 = log_gaussian(dV, m13, s13)
         return p0 + p1 + p2 + p3 + p8 + p9 + p10 + p11 + p12 + p13
     return -np.inf
 
@@ -519,7 +546,7 @@ def parameter_constraint(theta: Tuple[float]) -> float:
         and (vlsr2 < (vlsr1 + 0.3))
         and (vlsr3 < (vlsr2 + 0.3))
         and (vlsr4 < (vlsr3 + 0.3))
-        and dV < 0.3
+        and 0. < dV < 0.3
         and Tex > 0.
     )
 
@@ -559,13 +586,14 @@ def lnprob(theta, datagrid, mol_cat, prior_stds=None, prior_means=None) -> float
             lp = base_lnprior(theta)
         else:
             lp = lnprior(theta, prior_stds, prior_means)
-        prob = lp + lnlike(theta, datagrid, mol_cat)
-        # for whatever reason, sometimes only -np.inf is returned for the
-        # pool. This patches it by simply making everything damn unlikely,
-        # and it seems to let the sampling continue happily :P
-        if type(prob) == np.float64:
-            prob = [-np.inf for _ in range(200)]
-        return prob
+            # for whatever reason, sometimes the prior comes back
+            # as a list and screws everything up
+            try:
+                lp = sum(lp)
+            except TypeError:
+                pass
+        ll = lnlike(theta, datagrid, mol_cat)
+        return ll + lp
 
 
 def load_input_file(yml_path):
@@ -641,6 +669,7 @@ def fit_multi_gaussian(
     workers=8,
     initial=None,
     progressbar=False,
+    nwalkers=100,
     **kwargs,
 ):
     """
@@ -650,7 +679,7 @@ def fit_multi_gaussian(
     logger.info("Fitting column densities.")
     datagrid = np.load(datafile, allow_pickle=True)
 
-    ndim, nwalkers = 14, 200
+    ndim = 14
 
     # if we're generating priors, use these values
     if not initial:
@@ -733,19 +762,19 @@ def fit_multi_gaussian(
     # the statistics
     if prior_path:
         # load priors
-        prior_samples = np.load(prior_path, allow_pickle=True).T
+        prior_samples = np.load(prior_path)[-1000,:,:].reshape(-1,14)
 
         prior_stds = (
             np.abs(
-                np.percentile(prior_samples, 16, axis=1)
-                - np.percentile(prior_samples, 50, axis=1)
+                np.percentile(prior_samples, 16, 0)
+                - np.percentile(prior_samples, 50, 0)
             )
             + np.abs(
-                np.percentile(prior_samples, 84, axis=1)
-                - np.percentile(prior_samples, 50, axis=1)
+                np.percentile(prior_samples, 84, 0)
+                - np.percentile(prior_samples, 50, 0)
             )
         ) / 2.0
-        prior_means = np.percentile(prior_samples, 50, axis=1)
+        prior_means = np.percentile(prior_samples, 50, 0)
     else:
         prior_stds = prior_means = None
     logger.info(f"Using prior {prior_path}, mean: {prior_means}, std: {prior_stds}")
@@ -763,18 +792,25 @@ def fit_multi_gaussian(
         )
         iterator = range(nruns)
         for iteration in iterator:
-            sampler.run_mcmc(pos, 100, progress=True)
-            #if iteration % 10 == 0:
-            np.save(output_chain, sampler.get_chain())
-            #pos = sampler.chain[:, -1, :]
-            pos = sampler.get_last_sample()
-            # log the status
-            #if iteration % 100 == 0:
-            median = np.percentile(sampler.chain.reshape(-1, 14), 50, axis=0)
-            logger.info(f"Median parameters for {iteration}: {median}")
-            accept_frac = np.mean(sampler.acceptance_fraction)
-            logger.info(f"Mean fraction of accepted moves: {accept_frac:.4f}")
-            # autocorrelation
+            try:
+                sampler.run_mcmc(pos, 10, progress=True)
+                #if iteration % 10 == 0:
+                np.save(output_chain, sampler.get_chain())
+                #pos = sampler.chain[:, -1, :]
+                pos = sampler.get_last_sample()
+                # log the status
+                #if iteration % 100 == 0:
+                median = np.percentile(sampler.chain.reshape(-1, 14), 50, axis=0)
+                logger.info(f"Median parameters for {iteration}: {median}")
+                accept_frac = np.mean(sampler.acceptance_fraction)
+                logger.info(f"Mean fraction of accepted moves: {accept_frac:.4f}")
+                #ll = np.mean(10**sampler.get_log_prob()[-1])
+                #logger.info(f"Log likelihood at last position: {ll} K")
+            except (TypeError, IndexError):
+                pos = sampler.get_last_sample()
+                logprob, _ = sampler.compute_log_prob(pos)
+                logger.info(f"Durr: {logprop}")
+                pos += np.random.rand(*pos.shape)
         corr = np.mean(sampler.get_autocorr_time())
         logger.info(f"Autocorrelation time: {corr:.4f}")
     logger.info("Completed MCMC sampling routine.")

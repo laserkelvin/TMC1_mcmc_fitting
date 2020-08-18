@@ -8,7 +8,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 seed = np.random.seed(42)
 PROGRESSBAR = True
 
-input_dict = repack.load_input_file("yml/benzonitrile.yml")
+input_dict = repack.load_input_file("yml/2-cnn.yml")
 
 output_npy, catalog, output_path = repack.init_setup(**input_dict)
 
@@ -18,6 +18,5 @@ repack.fit_multi_gaussian(
     output_path=output_path,
     catalogue=catalog,
     progressbar=PROGRESSBAR,
-    nwakers=input_dict.get("nwalkers", 200),
     **input_dict
 )

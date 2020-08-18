@@ -1,0 +1,11 @@
+mol_name: "2-cyanonaphthalene"
+fit_folder: "cnn"
+cat_folder: "gotham_catalogs"
+data_path: "cnn/2-cyanonaphthalene/all_2-cyanonapthalene_lines_GOTHAM_freq_space.npy"
+prior_path: "prior/bn_prior_chain.npy"
+block_interlopers: true
+nruns: 300
+nwalkers: 100
+restart: true
+workers: 8
+initial: "cnn/2-cyanonaphthalene/restart.npy"

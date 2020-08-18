@@ -3,9 +3,10 @@ fit_folder: "prior"
 cat_folder: "gotham_catalogs"
 #data_path: "supplementary/benzonitrile/benzonitrile_chunks.npy"
 data_path: "prior/benzonitrile/all_benzonitrile_lines_GOTHAM_freq_space.npy"
-prior_path: "prior/benzonitrile/prior.npy"
-#prior_path: null
+#prior_path: "prior/benzonitrile/prior.npy"
+prior_path: null
 block_interlopers: false
-nruns: 20
+nruns: 200
 restart: true
-workers: 16
+initial: null
+workers: 4

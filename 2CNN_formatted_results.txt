@@ -1,0 +1,14 @@
+Source Size 1 = 167.5 +/- 76.6, 62.8 arcsec
+Source Size 2 = 109.1 +/- 46.7, 43.9 arcsec
+Source Size 3 = 248.8 +/- 78.9, 73.6 arcsec
+Source Size 4 = 67.7 +/- 65.3, 24.3 arcsec
+Column Density 1 = 1.18e+11 +/- 1.53e+10, 1.41e+10 cm^-2
+Column Density 2 = 1.81e+11 +/- 2.99e+10, 1.94e+10 cm^-2
+Column Density 3 = 1.27e+11 +/- 1.70e+10, 1.61e+10 cm^-2
+Column Density 4 = 2.78e+11 +/- 6.67e+10, 4.36e+10 cm^-2
+T_ex = 8.74 +/- 0.35, 0.35 K
+V_lsrk 1 = 5.589 +/- 0.007, 0.007 km/s
+V_lsrk 2 = 5.767 +/- 0.003, 0.003 km/s
+V_lsrk 3 = 5.889 +/- 0.005, 0.005 km/s
+V_lsrk 4 = 6.023 +/- 0.003, 0.003 km/s
+dV = 0.125 +/- 0.010, 0.009 km/s

@@ -7,3 +7,4 @@ slurm*
 .vscode/
 batch.sh
 pull_data.sh
+.ipynb_checkpoints/

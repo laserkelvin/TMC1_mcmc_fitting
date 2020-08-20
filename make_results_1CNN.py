@@ -36,9 +36,8 @@ def label_offset(ax, axis):
     return
 
 
-chain = np.load("cnn/1-cyanonaphthalene/chain.npy")
-
-samples = chain[:,-1000:,:].reshape(-1,14).T
+samples = np.load("cnn/1-cyanonaphthalene/analyzed_chain.npy").T
+samples[4:8,:] *= 1e11
 
 #samples = samples[:,samples[13]<0.16]
 

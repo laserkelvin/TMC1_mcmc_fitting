@@ -77,6 +77,7 @@ def read_file(
         relevant_yerrs = np.zeros(freqs.shape)
 
         covered_trans = []
+        ignore_counter = 0
 
         # loop over the rest frequencies
         for i, rf in enumerate(restfreqs):
@@ -100,6 +101,7 @@ def read_file(
                         if plot:
                             pl.plot(freqs[locs], intensity[locs])
                             pl.show()
+                        ignore_counter += 1
                     else:
                         covered_trans.append(i)
                         logger.info(f"Found_line at @ {rf}")
@@ -120,6 +122,7 @@ def read_file(
         relevant_freqs = relevant_freqs[mask]
         relevant_intensity = relevant_intensity[mask]
         relevant_yerrs = relevant_yerrs[mask]
+        logger.info(f"There were {ignored} ignored entries because of interlopers.")
     else:
         data = np.load(filename, allow_pickle=True)
         # read in the appropriate data
